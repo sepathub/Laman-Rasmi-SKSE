@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Simpang Empat - Laman Rasmi</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons (Vanilla Version for stability) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #F9FAFB; }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Marquee Animation */
+        .marquee-container { overflow: hidden; white-space: nowrap; }
+        .marquee-text { display: inline-block; animation: marquee 15s linear infinite; }
+        @keyframes marquee {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        /* Floating Music Notes */
+        .music-note { position: absolute; animation: float 3s ease-in-out infinite; opacity: 0.6; }
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(10deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        
+        /* Audio visualizer bars */
+        .bar { width: 6px; background: #2563EB; margin: 0 2px; animation: equalize 1s infinite; }
+        @keyframes equalize { 0% { height: 10px; } 50% { height: 30px; } 100% { height: 10px; } }
+
+        .font-signature { font-family: 'Dancing Script', cursive; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, createElement } = React;
+
+        // --- LUCIDE REACT POLYFILL ---
+        // Mencipta komponen React daripada library Lucide global
+        const lucideReact = window.lucide ? Object.keys(window.lucide.icons).reduce((acc, key) => {
+            acc[key] = ({ size = 24, color = "currentColor", strokeWidth = 2, className = "", ...props }) => {
+                const ref = useRef(null);
+                useEffect(() => {
+                    if (ref.current) {
+                        ref.current.innerHTML = '';
+                        const iconNode = window.lucide.icons[key];
+                        const svg = window.lucide.createElement(iconNode);
+                        svg.setAttribute('width', size);
+                        svg.setAttribute('height', size);
+                        svg.setAttribute('stroke', color);
+                        svg.setAttribute('stroke-width', strokeWidth);
+                        if(className) svg.setAttribute('class', `lucide lucide-${key} ${className}`);
+                        ref.current.appendChild(svg);
+                    }
+                }, [size, color, strokeWidth, className]);
+                return <span ref={ref} style={{ display: 'inline-flex', alignItems: 'center' }} {...props} />;
+            };
+            return acc;
+        }, {}) : {};
+
+        const { 
+            Users, BookOpen, Award, Phone, MapPin, Mail, Lock, Edit3, Save, X, Menu, 
+            GraduationCap, Calendar, Layout, ExternalLink, Info, Trash2, PlusCircle, 
+            Music, Flag, Play, Pause, Facebook, Youtube, Send, Filter, ArrowRight, 
+            ChevronDown, Quote 
+        } = lucideReact;
+
+        const App = () => {
+            // --- STATE ---
+            const [activeTab, setActiveTab] = useState('utama');
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [showLoginModal, setShowLoginModal] = useState(false);
+            const [passwordInput, setPasswordInput] = useState('');
+            const [loginError, setLoginError] = useState('');
+            const [editMode, setEditMode] = useState(null); 
+            const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+            const [isPlaying, setIsPlaying] = useState(false); // Untuk lagu sekolah
+            const [newsCategory, setNewsCategory] = useState('Semua'); // Untuk filter berita
+
+            // Data Sekolah
+            const [schoolData, setSchoolData] = useState({
+                hero: {
+                    title: "Selamat Datang ke SK Simpang Empat",
+                    subtitle: "Pendidikan Berkualiti Menjana Kecemerlangan Insan",
+                    announcement: "Pendaftaran Murid Tahun 1 Sesi 2026 Kini Dibuka! Sila hubungi pejabat untuk maklumat lanjut."
+                },
+                stats: {
+                    students: 850,
+                    teachers: 54,
+                    classes: 24
+                },
+                news: [
+                    { id: 1, title: "Hari Sukan Sekolah 2024", date: "20 Okt 2024", category: "Kokurikulum", content: "Tahniah Rumah Merah juara keseluruhan! Semangat kesukanan yang tinggi ditunjukkan." },
+                    { id: 2, title: "Mesyuarat PIBG Kali Ke-25", date: "15 Nov 2024", category: "PIBG", content: "Ibu bapa dijemput hadir ke Dewan Gemilang untuk membincangkan hal ehwal sekolah." },
+                    { id: 3, title: "Program Jom Membaca", date: "01 Dis 2024", category: "Akademik", content: "Program 10 minit membaca bersama di dataran perhimpunan setiap pagi." },
+                    { id: 4, title: "Kem Kepimpinan Pengawas", date: "10 Jan 2025", category: "Hal Ehwal Murid", content: "Melahirkan pemimpin muda yang berwibawa dan berdisiplin tinggi." }
+                ],
+                history: "SK Simpang Empat telah ditubuhkan pada tahun 1950. Bermula dengan sebuah bangunan kayu yang menempatkan 50 orang murid, kini sekolah ini telah berkembang pesat menjadi salah satu institusi pendidikan rendah yang disegani di daerah ini. Misi kami adalah untuk melahirkan murid yang seimbang dari segi intelek, rohani, emosi dan jasmani selaras dengan Falsafah Pendidikan Kebangsaan.",
+                adminTeam: [
+                    { id: 1, role: "Guru Besar", name: "En Anuar Bin Ismail", image: "https://i.postimg.cc/RV7W25BV/gb_anuar.png" },
+                    { id: 2, role: "GPK Pentadbiran", name: "Pn. Rosnizan Binti Abd Rani", image: "https://i.postimg.cc/13Mf5G4P/rosnizan.png" },
+                    { id: 3, role: "GPK HEM", name: "Pn. Haniza binti Sedin", image: "https://i.postimg.cc/rzXqQmm4/haniza.jpg" },
+                    { id: 4, role: "GPK Kokurikulum", name: "En. Muhammad Danial Bin Jamaludin", image: "https://i.postimg.cc/VvbYqMz7/danial.jpg" },
+                    { id: 5, role: "GPK PPKI", name: "Pn. Suzana Binti Sulaiman", image: "https://i.postimg.cc/HWJ5Zhnx/suzana.jpg" }
+                ],
+                units: [
+                    { id: 'pentadbiran', title: "Unit Pentadbiran", icon: Layout, desc: "Menguruskan hal ehwal perkhidmatan, kewangan, dan data sekolah.", color: "bg-blue-50 text-blue-600 border-blue-200" },
+                    { id: 'hem', title: "Unit Hal Ehwal Murid", icon: Users, desc: "Menjaga kebajikan, disiplin, biasiswa dan keselamatan murid.", color: "bg-green-50 text-green-600 border-green-200" },
+                    { id: 'koku', title: "Unit Kokurikulum", icon: Award, desc: "Menyelaras aktiviti sukan, permainan, kelab, persatuan dan unit beruniform.", color: "bg-yellow-50 text-yellow-600 border-yellow-200" },
+                    { id: 'ppki', title: "Unit PPKI", icon: BookOpen, desc: "Pendidikan Khas Integrasi untuk murid berkeperluan khas.", color: "bg-purple-50 text-purple-600 border-purple-200" },
+                    { id: 'pibg', title: "Unit PIBG", icon: Users, desc: "Persatuan Ibu Bapa dan Guru sebagai tulang belakang sokongan sekolah.", color: "bg-red-50 text-red-600 border-red-200" }
+                ],
+                links: [
+                    { title: "Portal Rasmi KPM", url: "https://www.moe.gov.my", desc: "Laman web utama Kementerian Pendidikan Malaysia.", color: "bg-blue-600" },
+                    { title: "Sistem IdMe", url: "https://idme.moe.gov.my/login", desc: "Sistem Pengurusan Identiti Kementerian Pendidikan Malaysia.", color: "bg-indigo-600" },
+                    { title: "DELIMa KPM", url: "https://delima.moe-dl.edu.my", desc: "Platform pembelajaran digital untuk guru dan murid.", color: "bg-red-500" }
+                ]
+            });
+
+            const [tempData, setTempData] = useState({});
+
+            // --- CRUD FUNCTIONS ---
+            const handleLogin = (e) => {
+                e.preventDefault();
+                if (passwordInput === 'admin123') { setIsAdmin(true); setShowLoginModal(false); setPasswordInput(''); setLoginError(''); } 
+                else { setLoginError('Kata laluan salah. Sila cuba lagi.'); }
+            };
+            const handleLogout = () => { setIsAdmin(false); setEditMode(null); };
+            const openEditModal = (section, data) => { setEditMode(section); setTempData(JSON.parse(JSON.stringify(data))); };
+            const openAddNewsModal = () => { setEditMode('news_add'); setTempData({ title: '', date: '', content: '', category: 'Umum' }); };
+            const handleDeleteNews = (id) => { if (window.confirm("Padam berita ini?")) { setSchoolData(prev => ({ ...prev, news: prev.news.filter(item => item.id !== id) })); }};
+            const saveChanges = () => {
+                if (editMode === 'news_add') {
+                    const newId = schoolData.news.length > 0 ? Math.max(...schoolData.news.map(n => n.id)) + 1 : 1;
+                    setSchoolData(prev => ({ ...prev, news: [{ id: newId, ...tempData }, ...prev.news] }));
+                } else if (editMode === 'news_edit') {
+                    setSchoolData(prev => ({ ...prev, news: prev.news.map(item => item.id === tempData.id ? tempData : item) }));
+                } else {
+                    setSchoolData(prev => ({ ...prev, [editMode]: tempData }));
+                }
+                setEditMode(null);
+            };
+
+            // --- UI COMPONENTS ---
+
+            const Navbar = () => (
+                <nav className="bg-white/90 backdrop-blur-md text-gray-800 shadow-sm sticky top-0 z-50 border-b border-gray-100 transition-all duration-300">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex items-center justify-between h-20">
+                            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActiveTab('utama')}>
+                                <div className="bg-blue-50 p-1 rounded-full shadow-sm overflow-hidden group-hover:scale-110 transition duration-300 border border-blue-100">
+                                    <img src="https://i.postimg.cc/Vv8468q3/LOGO-SKSE-utk-background-putih-(2).jpg" alt="Logo" className="h-10 w-10 object-contain" />
+                                </div>
+                                <div>
+                                    <h1 className="font-extrabold text-lg md:text-xl tracking-wide leading-none text-blue-800 group-hover:text-blue-600 transition">SK SIMPANG EMPAT</h1>
+                                    <p className="text-[10px] md:text-xs text-gray-500 tracking-wider">USAHA • PASTI • JAYA</p>
+                                </div>
+                            </div>
+                            
+                            <div className="hidden md:flex items-center space-x-1">
+                                {['utama', 'maklumat', 'organisasi', 'unit', 'pautan'].map((item) => (
+                                    <button
+                                        key={item}
+                                        onClick={() => setActiveTab(item)}
+                                        className={`px-4 py-2 rounded-full font-semibold text-sm transition-all duration-300 ${
+                                            activeTab === item 
+                                            ? 'bg-blue-600 text-white shadow-md transform scale-105' 
+                                            : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                                        } capitalize`}
+                                    >
+                                        {item}
+                                    </button>
+                                ))}
+                                <button 
+                                    onClick={isAdmin ? handleLogout : () => setShowLoginModal(true)}
+                                    className={`ml-4 px-5 py-2 rounded-full font-bold transition flex items-center gap-2 text-sm shadow-md ${isAdmin ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-gray-800 text-white hover:bg-gray-700'}`}
+                                >
+                                    {isAdmin ? <><X size={14}/> Keluar</> : <><Lock size={14}/> Admin</>}
+                                </button>
+                            </div>
+                            <div className="md:hidden">
+                                <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+                                    <Menu size={28} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {mobileMenuOpen && (
+                        <div className="md:hidden bg-white border-t border-gray-100 absolute w-full shadow-xl">
+                            {['utama', 'maklumat', 'organisasi', 'unit', 'pautan'].map((item) => (
+                                <button key={item} onClick={() => { setActiveTab(item); setMobileMenuOpen(false); }} className="w-full text-left block px-6 py-4 font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 capitalize border-b border-gray-50">
+                                    {item}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </nav>
+            );
+
+            const TabUtama = () => {
+                // Filter news logic
+                const categories = ['Semua', ...new Set(schoolData.news.map(n => n.category || 'Umum'))];
+                const filteredNews = newsCategory === 'Semua' ? schoolData.news : schoolData.news.filter(n => n.category === newsCategory);
+
+                return (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        {/* Hero Section */}
+                        <div className="relative bg-gradient-to-r from-blue-500 via-sky-400 to-yellow-300 overflow-hidden text-white rounded-b-[3rem] shadow-2xl mb-16">
+                            <div className="absolute inset-0 bg-black/10"></div>
+                            <div className="absolute top-10 left-10 w-32 h-32 bg-white/20 rounded-full blur-2xl"></div>
+                            <div className="absolute bottom-10 right-10 w-48 h-48 bg-yellow-300/30 rounded-full blur-3xl"></div>
+
+                            <div className="max-w-7xl mx-auto px-4 py-20 md:py-32 relative z-10 flex flex-col md:flex-row items-center gap-12">
+                                <div className="md:w-1/2 text-center md:text-left">
+                                    <div className="bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-full py-2 px-6 mb-8 max-w-lg mx-auto md:mx-0 overflow-hidden shadow-lg">
+                                        <div className="marquee-container">
+                                            <span className="marquee-text text-sm font-semibold tracking-wide">{schoolData.hero.announcement}</span>
+                                        </div>
+                                    </div>
+
+                                    <h2 className="text-4xl md:text-6xl font-extrabold mb-6 leading-tight drop-shadow-lg tracking-tight font-poppins">
+                                        {schoolData.hero.title}
+                                        {isAdmin && <button onClick={() => openEditModal('hero', schoolData.hero)} className="ml-3 p-2 bg-white/20 rounded-full hover:bg-white/40"><Edit3 size={20} /></button>}
+                                    </h2>
+                                    <p className="text-blue-50 text-lg md:text-xl mb-10 max-w-lg mx-auto md:mx-0 font-medium opacity-90">
+                                        {schoolData.hero.subtitle}
+                                    </p>
+                                    
+                                    <button onClick={() => document.getElementById('sejarah-sekolah').scrollIntoView({ behavior: 'smooth' })} className="bg-white text-blue-600 px-8 py-4 rounded-full font-bold shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-2 mx-auto md:mx-0 group">
+                                        Ketahui Lebih Lanjut <ArrowRight className="group-hover:translate-x-1 transition" size={20} />
+                                    </button>
+                                </div>
+                                
+                                <div className="md:w-1/2 w-full flex justify-center perspective-1000">
+                                    <div className="relative w-full max-w-lg">
+                                        <div className="absolute inset-0 bg-blue-600 rounded-3xl transform rotate-3 opacity-20 blur-lg"></div>
+                                        <img 
+                                            src="https://i.postimg.cc/JzNrDcCv/sk-simpang-empat-01.jpg" 
+                                            alt="Sekolah" 
+                                            className="relative rounded-3xl shadow-2xl border-4 border-white/30 w-full h-auto object-cover transform hover:-rotate-1 transition duration-500 z-10"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="max-w-7xl mx-auto px-4 space-y-24 pb-20">
+                            {/* Stats Section */}
+                            <div className="relative -mt-32 z-20 grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {[
+                                    { label: 'Murid', val: schoolData.stats.students, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                    { label: 'Guru', val: schoolData.stats.teachers, icon: GraduationCap, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+                                    { label: 'Kelas', val: schoolData.stats.classes, icon: Layout, color: 'text-green-600', bg: 'bg-green-50' }
+                                ].map((stat, idx) => (
+                                    <div key={idx} className="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition transform hover:-translate-y-2 flex items-center justify-between border border-gray-100">
+                                        <div>
+                                            <h3 className="text-5xl font-extrabold text-gray-800 mb-2">{stat.val}</h3>
+                                            <p className="text-gray-500 font-semibold uppercase tracking-wider text-sm">{stat.label}</p>
+                                        </div>
+                                        <div className={`${stat.bg} p-4 rounded-2xl ${stat.color}`}>
+                                            <stat.icon size={40} />
+                                        </div>
+                                        {isAdmin && idx === 0 && <button onClick={() => openEditModal('stats', schoolData.stats)} className="absolute top-4 right-4 text-gray-300 hover:text-blue-500"><Edit3 size={16}/></button>}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* News Section */}
+                            <div id="berita">
+                                <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
+                                    <div>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <span className="bg-yellow-100 p-2 rounded-lg text-yellow-700"><Calendar size={20} /></span>
+                                            <h3 className="text-3xl font-extrabold text-gray-900">Info Terkini</h3>
+                                        </div>
+                                        <p className="text-gray-500">Perkembangan semasa dan aktiviti sekolah.</p>
+                                    </div>
+                                    
+                                    <div className="flex flex-wrap gap-2 items-center">
+                                        <div className="flex items-center bg-white border border-gray-200 rounded-lg px-3 py-2 mr-2">
+                                            <Filter size={16} className="text-gray-400 mr-2" />
+                                            <select 
+                                                className="bg-transparent outline-none text-sm text-gray-600 cursor-pointer"
+                                                value={newsCategory}
+                                                onChange={(e) => setNewsCategory(e.target.value)}
+                                            >
+                                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                        {isAdmin && <button onClick={openAddNewsModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700 transition shadow-lg text-sm"><PlusCircle size={16} /> Tambah Berita</button>}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    {filteredNews.map((item) => (
+                                        <div key={item.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden group flex flex-col h-full hover:-translate-y-1">
+                                            <div className="p-6 flex-grow flex flex-col">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-blue-100">
+                                                        {item.category || 'Umum'}
+                                                    </span>
+                                                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                                                        <Calendar size={12} /> {item.date}
+                                                    </div>
+                                                </div>
+                                                
+                                                <h4 className="font-bold text-lg text-gray-800 mb-3 leading-snug group-hover:text-blue-600 transition">{item.title}</h4>
+                                                <p className="text-gray-500 text-sm line-clamp-4 mb-4 flex-grow leading-relaxed">{item.content}</p>
+                                                
+                                                {isAdmin && (
+                                                    <div className="flex gap-2 pt-4 border-t border-gray-100 mt-auto">
+                                                        <button onClick={() => openEditModal('news_edit', item)} className="flex-1 py-1 text-xs font-bold text-blue-600 bg-blue-50 rounded hover:bg-blue-100">Edit</button>
+                                                        <button onClick={() => handleDeleteNews(item.id)} className="flex-1 py-1 text-xs font-bold text-red-600 bg-red-50 rounded hover:bg-red-100">Padam</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* History Section */}
+                            <div id="sejarah-sekolah" className="bg-blue-50 rounded-[3rem] p-8 md:p-16 flex flex-col md:flex-row gap-12 items-center relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-200/50 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                                
+                                <div className="md:w-1/2 relative z-10">
+                                    <div className="inline-flex items-center gap-2 text-blue-600 font-bold bg-white px-4 py-1 rounded-full shadow-sm mb-6">
+                                        <BookOpen size={16} /> Sejarah Kami
+                                    </div>
+                                    <h3 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-6 leading-tight">Membangun Potensi Sejak Tahun <span className="text-blue-600">1950</span></h3>
+                                    <p className="text-gray-600 leading-relaxed text-lg mb-6 text-justify">
+                                        {schoolData.history}
+                                    </p>
+                                    {isAdmin && <button onClick={() => { setEditMode('history'); setTempData(schoolData.history); }} className="text-blue-600 font-bold hover:underline flex items-center gap-2"><Edit3 size={16}/> Edit Sejarah</button>}
+                                </div>
+                                <div className="md:w-1/2 relative z-10">
+                                    <div className="relative">
+                                        <div className="absolute inset-0 bg-yellow-400 rounded-3xl transform rotate-6 translate-x-4 translate-y-4 z-0"></div>
+                                        <img src="https://i.postimg.cc/SN527G59/sk-simpang-empat.jpg" alt="Sejarah" className="relative rounded-3xl shadow-xl z-10 w-full object-cover border-4 border-white" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const TabMaklumatAsas = () => (
+                <div className="max-w-7xl mx-auto px-4 py-16 animate-in slide-in-from-right-8 duration-500">
+                    
+                    {/* Ucapan Guru Besar Section */}
+                    <div className="bg-white rounded-[2rem] shadow-xl border border-blue-100 overflow-hidden mb-24 flex flex-col md:flex-row transform hover:shadow-2xl transition duration-500">
+                        <div className="md:w-2/5 relative min-h-[400px]">
+                            <img src={schoolData.adminTeam[0].image} alt="Guru Besar" className="absolute inset-0 w-full h-full object-cover object-top" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-blue-900/90 via-blue-900/20 to-transparent flex flex-col justify-end p-8">
+                                <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20">
+                                    <h3 className="text-white font-bold text-2xl mb-1">{schoolData.adminTeam[0].name}</h3>
+                                    <p className="text-blue-200 font-medium tracking-wide text-sm uppercase">Guru Besar SK Simpang Empat</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="md:w-3/5 p-8 md:p-12 flex flex-col justify-center bg-gradient-to-br from-white to-blue-50/50 relative">
+                            <Quote className="absolute top-8 right-8 text-blue-100 rotate-180" size={64} />
+                            <span className="text-blue-600 font-bold tracking-wider text-xs uppercase mb-2">Dari Meja Guru Besar</span>
+                            <h2 className="text-3xl md:text-4xl font-extrabold text-blue-900 mb-6 font-poppins">Sekapur Sirih Seulas Pinang</h2>
+                            <div className="prose prose-lg text-gray-600 leading-relaxed text-justify mb-8">
+                                <p className="mb-4">
+                                    Assalamualaikum Warahmatullahi Wabarakatuh dan Salam Sejahtera.
+                                </p>
+                                <p className="mb-4">
+                                    Selamat datang ke laman web rasmi Sekolah Kebangsaan Simpang Empat. Alhamdulillah, bersyukur kita ke hadrat Ilahi kerana dengan limpah kurnia-Nya, kita dapat memanfaatkan teknologi maklumat ini sebagai medium perhubungan yang efisien antara sekolah, ibu bapa, dan masyarakat.
+                                </p>
+                                <p>
+                                    Saya berharap laman web ini dapat menjadi wadah penyebaran maklumat yang pantas dan tepat mengenai aktiviti serta pencapaian sekolah. Marilah kita bersama-sama berganding bahu demi kecemerlangan anak-anak didik kita. "Usaha, Pasti, Jaya".
+                                </p>
+                            </div>
+                            <div className="mt-auto pt-6 border-t border-blue-100">
+                                <p className="font-signature text-3xl text-blue-600 transform -rotate-2">{schoolData.adminTeam[0].name.split(' ')[1]}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="text-center mb-16">
+                        <span className="text-blue-600 font-bold tracking-wider text-sm uppercase">Identiti Sekolah</span>
+                        <h2 className="text-4xl font-extrabold text-gray-900 mt-2">Maklumat Asas & Kebanggaan</h2>
+                        <div className="w-24 h-1.5 bg-yellow-400 mx-auto mt-6 rounded-full"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20">
+                        <div className="bg-white p-10 rounded-3xl shadow-lg border border-gray-100 text-center hover:shadow-2xl transition duration-500 group">
+                            <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition">
+                                <Award className="text-blue-600" size={40} />
+                            </div>
+                            <h3 className="text-2xl font-bold text-gray-800 mb-6">Lencana Sekolah</h3>
+                            <img src="https://i.postimg.cc/Vv8468q3/LOGO-SKSE-utk-background-putih-(2).jpg" alt="Lencana" className="w-40 h-40 mx-auto mb-8 object-contain drop-shadow-md" />
+                            <p className="text-gray-500 leading-relaxed px-4">Lambang kemegahan yang membawa maksud keberanian, ketaatan, dan keharmonian warga sekolah dalam mencapai visi pendidikan.</p>
+                        </div>
+
+                        <div className="bg-white p-10 rounded-3xl shadow-lg border border-gray-100 text-center hover:shadow-2xl transition duration-500 group">
+                            <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition">
+                                <Flag className="text-yellow-600" size={40} />
+                            </div>
+                            <h3 className="text-2xl font-bold text-gray-800 mb-6">Bendera Sekolah</h3>
+                            <img src="https://i.postimg.cc/xTwWJhJ2/bendera-sekolah.png" alt="Bendera Sekolah" className="w-full h-48 mx-auto mb-8 object-contain drop-shadow-md" />
+                            <p className="text-gray-500 leading-relaxed px-4">Simbol perpaduan dan semangat kesukanan yang tinggi, menjadi inspirasi kepada setiap murid untuk terus berusaha.</p>
+                        </div>
+                    </div>
+
+                    {/* Lagu Sekolah Player */}
+                    <div className="bg-blue-900 rounded-[3rem] p-10 md:p-16 text-white text-center relative overflow-hidden shadow-2xl">
+                        {/* Animated Background Elements */}
+                        {isPlaying && (
+                            <>
+                                <Music className="music-note text-yellow-300 left-10 top-20 w-12 h-12" style={{ animationDelay: '0s' }} />
+                                <Music className="music-note text-blue-300 right-20 top-10 w-8 h-8" style={{ animationDelay: '1s' }} />
+                                <Music className="music-note text-pink-300 left-1/4 bottom-10 w-10 h-10" style={{ animationDelay: '0.5s' }} />
+                            </>
+                        )}
+                        
+                        <div className="relative z-10 max-w-2xl mx-auto">
+                            <h3 className="text-3xl font-bold mb-2">Lagu Sekolah</h3>
+                            <p className="text-blue-200 mb-8 font-medium">"Usaha Pasti Jaya"</p>
+
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 mb-8">
+                                <div className="space-y-1 font-medium text-lg leading-loose italic opacity-90">
+                                    <p>Sekolah Kebangsaan Simpang Empat</p>
+                                    <p>Sekolahku Tercinta</p>
+                                    <p>Gedung Murni Menimba Ilmu</p>
+                                    <p>Melahirkan Insan Kamil</p>
+                                    <br/>
+                                    <p>Berjasa Kepada Ibu Bapa</p>
+                                    <p>Hormat Pada Guru</p>
+                                    <p>Bersopan Pada Rakan Kita</p>
+                                    <p>Ke Arah Hidup Yang Harmoni</p>
+                                    <br/>
+                                    <p>Berdoalah Pada Ilahi</p>
+                                    <p>Semoga Kita Diberkati</p>
+                                    <p>Berusaha Pasti Kita Jaya</p>
+                                    <p>Itu Falsafah Kita</p>
+                                    <br/>
+                                    <p>Era Sains Teknologi</p>
+                                    <p>Bersama Kita Hadapi</p>
+                                    <p>Berazam dan Berwawasan</p>
+                                    <p className="text-yellow-300 font-bold mt-2">Menuju Kejayaan</p>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={() => setIsPlaying(!isPlaying)}
+                                className={`flex items-center justify-center gap-3 px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 shadow-lg mx-auto ${isPlaying ? 'bg-yellow-400 text-blue-900' : 'bg-white text-blue-900 hover:bg-blue-50'}`}
+                            >
+                                {isPlaying ? <><Pause fill="currentColor" /> Hentikan Lagu</> : <><Play fill="currentColor" /> Mainkan Lagu</>}
+                            </button>
+                            
+                            {isPlaying && (
+                                <div className="flex justify-center items-end h-8 gap-1 mt-6 opacity-70">
+                                    {[...Array(10)].map((_, i) => <div key={i} className="bar" style={{ animationDelay: `${i * 0.1}s`, background: '#FACC15' }}></div>)}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const TabOrganisasi = () => (
+                <div className="max-w-7xl mx-auto px-4 py-16 animate-in slide-in-from-right-8 duration-500">
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl font-extrabold text-gray-900">Carta Organisasi</h2>
+                        <p className="text-gray-500 mt-3 text-lg">"Bersatu Menuju Kecemerlangan"</p>
+                        <div className="w-24 h-1.5 bg-blue-500 mx-auto mt-6 rounded-full"></div>
+                    </div>
+
+                    {/* Guru Besar Card - Featured */}
+                    <div className="flex justify-center mb-16">
+                        <div className="relative group w-full max-w-sm">
+                            <div className="absolute inset-0 bg-blue-500 rounded-2xl rotate-6 group-hover:rotate-3 transition duration-300 opacity-20"></div>
+                            <div className="bg-white p-10 rounded-2xl shadow-xl relative text-center border border-gray-100 hover:-translate-y-2 transition duration-300">
+                                <div className="w-32 h-32 rounded-full mx-auto mb-6 p-1 border-4 border-blue-100 bg-white overflow-hidden shadow-sm">
+                                    <img src={schoolData.adminTeam[0].image} alt="GB" className="w-full h-full object-cover object-top transform group-hover:scale-110 transition duration-500" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-gray-800">{schoolData.adminTeam[0].name}</h3>
+                                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold mt-2 inline-block uppercase tracking-wide">{schoolData.adminTeam[0].role}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Grid GPKs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        {schoolData.adminTeam.slice(1).map((staff) => (
+                            <div key={staff.id} className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl transition duration-300 border-t-4 border-yellow-400 group text-center hover:-translate-y-2">
+                                <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden border-4 border-gray-50 group-hover:border-yellow-200 transition">
+                                    <img src={staff.image} alt={staff.role} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
+                                </div>
+                                <h4 className="font-bold text-gray-800 text-lg mb-1">{staff.name}</h4>
+                                <p className="text-sm text-gray-500 font-medium uppercase">{staff.role}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const TabUnit = () => (
+                <div className="max-w-7xl mx-auto px-4 py-16 animate-in slide-in-from-right-8 duration-500">
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl font-extrabold text-gray-900">Unit Pengurusan</h2>
+                        <div className="w-24 h-1.5 bg-green-500 mx-auto mt-6 rounded-full"></div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {schoolData.units.map((unit) => {
+                            const Icon = unit.icon;
+                            return (
+                                <div key={unit.id} className={`p-8 rounded-3xl transition-all duration-300 border bg-white hover:shadow-xl hover:-translate-y-2 group relative overflow-hidden ${unit.color.split(' ')[2]}`}>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 text-2xl shadow-sm ${unit.color.split(' ')[0]} ${unit.color.split(' ')[1]}`}>
+                                        <Icon size={28} />
+                                    </div>
+                                    <h3 className="font-bold text-xl mb-3 text-gray-800">{unit.title}</h3>
+                                    <p className="text-gray-500 leading-relaxed text-sm mb-4">{unit.desc}</p>
+                                    
+                                    <div className="absolute bottom-0 right-0 w-24 h-24 bg-current opacity-5 rounded-tl-full transform translate-y-4 translate-x-4"></div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+
+            const TabPautan = () => (
+                <div className="max-w-5xl mx-auto px-4 py-16 animate-in slide-in-from-right-8 duration-500 min-h-[70vh]">
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl font-extrabold text-gray-900">Pautan Digital KPM</h2>
+                        <p className="text-gray-500 mt-3">Akses pantas ke sistem utama pendidikan</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {schoolData.links.map((link, idx) => (
+                            <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="group relative bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 flex flex-col items-center text-center hover:-translate-y-2 overflow-hidden">
+                                <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition duration-500 ${link.color}`}></div>
+                                <div className={`p-5 rounded-full mb-6 text-white shadow-lg ${link.color} group-hover:scale-110 transition duration-300`}>
+                                    <ExternalLink size={32} />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-800 mb-3 group-hover:text-blue-600 transition">{link.title}</h3>
+                                <p className="text-gray-500 text-sm leading-relaxed">{link.desc}</p>
+                            </a>
+                        ))}
+                    </div>
+
+                    <div className="mt-16 bg-yellow-50 border border-yellow-200 rounded-2xl p-6 flex gap-4 items-start shadow-sm">
+                        <Info className="text-yellow-600 flex-shrink-0 mt-1" />
+                        <div>
+                            <h4 className="font-bold text-yellow-800 mb-1">Peringatan Keselamatan</h4>
+                            <p className="text-sm text-yellow-700">Pastikan anda sentiasa log keluar daripada sistem selepas selesai urusan terutamanya apabila menggunakan komputer awam.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const Footer = () => (
+                <footer className="bg-gray-900 text-white pt-16 pb-8 mt-auto border-t-4 border-yellow-400">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-12">
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-white p-1 rounded shadow-sm">
+                                        <img src="https://i.postimg.cc/Vv8468q3/LOGO-SKSE-utk-background-putih-(2).jpg" alt="Logo" className="h-10 w-10 object-contain" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold">SK SIMPANG EMPAT</h3>
+                                        <p className="text-xs text-gray-400 tracking-wider">MELAKA</p>
+                                    </div>
+                                </div>
+                                <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
+                                    Melahirkan generasi cemerlang, gemilang dan terbilang melalui pendidikan berkualiti dan persekitaran yang kondusif.
+                                </p>
+                                <div className="flex gap-4">
+                                    <a href="#" className="bg-blue-600 p-2 rounded-lg hover:bg-blue-500 transition"><Facebook size={18} /></a>
+                                    <a href="#" className="bg-red-600 p-2 rounded-lg hover:bg-red-500 transition"><Youtube size={18} /></a>
+                                    <a href="#" className="bg-sky-500 p-2 rounded-lg hover:bg-sky-400 transition"><Send size={18} /></a>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-yellow-400 font-bold mb-6 text-lg">Hubungi Kami</h4>
+                                <ul className="space-y-4 text-sm text-gray-300">
+                                    <li className="flex items-start gap-3">
+                                        <MapPin size={20} className="text-yellow-400 flex-shrink-0 mt-1" />
+                                        <span>Sekolah Kebangsaan Simpang Empat,<br/>Simpang Empat 78000,<br/>Alor Gajah, Melaka, Malaysia.</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <Phone size={20} className="text-yellow-400 flex-shrink-0" />
+                                        <span>+606-552 8803</span>
+                                    </li>
+                                    <li className="flex items-center gap-3">
+                                        <Mail size={20} className="text-yellow-400 flex-shrink-0" />
+                                        <span>mba0022@moe.edu.my</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-700 h-64 lg:h-auto">
+                                <iframe 
+                                    width="100%" 
+                                    height="100%" 
+                                    style={{border:0, minHeight: '200px'}} 
+                                    loading="lazy" 
+                                    allowFullScreen 
+                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3986.5362540706856!2d102.1793!3d2.4345!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31d1e4c9c9c9c9c9%3A0x0!2sSekolah+Kebangsaan+Simpang+Empat!5e0!3m2!1sen!2smy!4v1620000000000!5m2!1sen!2smy"
+                                ></iframe>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
+                            <p>&copy; 2026 SK Simpang Empat. Hak Cipta Terpelihara.</p>
+                            <p className="mt-2 md:mt-0">Dibangunkan dengan ❤️ untuk Pendidikan.</p>
+                        </div>
+                    </div>
+                </footer>
+            );
+
+            const LoginModal = () => (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm border border-gray-100 relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-yellow-400"></div>
+                        <div className="flex justify-between items-center mb-8">
+                            <h3 className="text-xl font-bold text-gray-900">Portal Pentadbir</h3>
+                            <button onClick={() => setShowLoginModal(false)} className="text-gray-400 hover:text-red-500 transition"><X size={24} /></button>
+                        </div>
+                        <form onSubmit={handleLogin}>
+                            <div className="mb-6">
+                                <label className="block text-sm font-semibold text-gray-600 mb-2">Kata Laluan</label>
+                                <div className="relative group">
+                                    <Lock className="absolute left-3 top-3 text-gray-400 group-focus-within:text-blue-500 transition" size={18} />
+                                    <input 
+                                        type="password" 
+                                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-medium text-gray-800"
+                                        value={passwordInput}
+                                        onChange={(e) => setPasswordInput(e.target.value)}
+                                        placeholder="Masukkan kata laluan"
+                                        autoFocus
+                                    />
+                                </div>
+                            </div>
+                            {loginError && <p className="text-red-500 text-xs font-semibold mb-4 bg-red-50 p-2 rounded border border-red-100 text-center">{loginError}</p>}
+                            <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg transform active:scale-95">Log Masuk</button>
+                        </form>
+                    </div>
+                </div>
+            );
+
+            const EditModal = () => {
+                if (!editMode) return null;
+                const renderFormContent = () => {
+                    if (editMode === 'news_add' || editMode === 'news_edit') {
+                        return (
+                            <>
+                                <div className="mb-4">
+                                    <label className="block text-sm text-gray-600 mb-1">Tajuk Berita</label>
+                                    <input value={tempData.title || ''} onChange={(e) => setTempData({...tempData, title: e.target.value})} className="w-full p-2 border rounded" placeholder="Tajuk..." />
+                                </div>
+                                <div className="mb-4 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm text-gray-600 mb-1">Kategori</label>
+                                        <select value={tempData.category || 'Umum'} onChange={(e) => setTempData({...tempData, category: e.target.value})} className="w-full p-2 border rounded">
+                                            {['Umum', 'Akademik', 'Kokurikulum', 'Hal Ehwal Murid', 'PIBG'].map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-600 mb-1">Tarikh</label>
+                                        <input value={tempData.date || ''} onChange={(e) => setTempData({...tempData, date: e.target.value})} className="w-full p-2 border rounded" placeholder="1 Jan 2026" />
+                                    </div>
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block text-sm text-gray-600 mb-1">Kandungan</label>
+                                    <textarea value={tempData.content || ''} onChange={(e) => setTempData({...tempData, content: e.target.value})} className="w-full p-2 border rounded h-24" placeholder="Ringkasan..." />
+                                </div>
+                            </>
+                        );
+                    }
+                    if (editMode === 'hero') {
+                        return (
+                            <>
+                                <div className="mb-4"><label className="block text-sm text-gray-600 mb-1">Tajuk Utama</label><input value={tempData.title || ''} onChange={(e) => setTempData({...tempData, title: e.target.value})} className="w-full p-2 border rounded" /></div>
+                                <div className="mb-4"><label className="block text-sm text-gray-600 mb-1">Sub-tajuk</label><input value={tempData.subtitle || ''} onChange={(e) => setTempData({...tempData, subtitle: e.target.value})} className="w-full p-2 border rounded" /></div>
+                                <div className="mb-4"><label className="block text-sm text-gray-600 mb-1">Pengumuman</label><input value={tempData.announcement || ''} onChange={(e) => setTempData({...tempData, announcement: e.target.value})} className="w-full p-2 border rounded" /></div>
+                            </>
+                        );
+                    }
+                    if (editMode === 'stats') {
+                        return (
+                            <>
+                                <div className="mb-4"><label className="block text-sm text-gray-600 mb-1">Bilangan Murid</label><input type="number" value={tempData.students || ''} onChange={(e) => setTempData({...tempData, students: e.target.value})} className="w-full p-2 border rounded" /></div>
+                                <div className="mb-4"><label className="block text-sm text-gray-600 mb-1">Bilangan Guru</label><input type="number" value={tempData.teachers || ''} onChange={(e) => setTempData({...tempData, teachers: e.target.value})} className="w-full p-2 border rounded" /></div>
+                                <div className="mb-4"><label className="block text-sm text-gray-600 mb-1">Bilangan Kelas</label><input type="number" value={tempData.classes || ''} onChange={(e) => setTempData({...tempData, classes: e.target.value})} className="w-full p-2 border rounded" /></div>
+                            </>
+                        );
+                    }
+                    if (editMode === 'history') { return <div className="mb-4"><label className="block text-sm text-gray-600 mb-1">Teks Sejarah</label><textarea value={tempData || ''} onChange={(e) => setTempData(e.target.value)} className="w-full p-2 border rounded h-40" /></div>; }
+                    return null;
+                };
+
+                return (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg">
+                            <div className="flex justify-between items-center mb-6 border-b pb-2">
+                                <h3 className="text-lg font-bold text-gray-800 capitalize">Edit: {editMode.replace('_', ' ')}</h3>
+                                <button onClick={() => setEditMode(null)} className="text-gray-500 hover:text-red-500"><X size={24} /></button>
+                            </div>
+                            <div className="max-h-[60vh] overflow-y-auto pr-2">{renderFormContent()}</div>
+                            <div className="mt-6 flex justify-end gap-3">
+                                <button onClick={() => setEditMode(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Batal</button>
+                                <button onClick={saveChanges} className="px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg font-bold flex items-center gap-2"><Save size={18} /> Simpan</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col bg-gray-50 font-sans selection:bg-blue-100 selection:text-blue-900">
+                    <Navbar />
+                    <main className="flex-grow">
+                        {activeTab === 'utama' && <TabUtama />}
+                        {activeTab === 'maklumat' && <TabMaklumatAsas />}
+                        {activeTab === 'organisasi' && <TabOrganisasi />}
+                        {activeTab === 'unit' && <TabUnit />}
+                        {activeTab === 'pautan' && <TabPautan />}
+                    </main>
+                    <Footer />
+                    {showLoginModal && <LoginModal />}
+                    {editMode && <EditModal />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
