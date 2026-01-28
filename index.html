@@ -15,6 +15,9 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Supabase Client -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
     <!-- Lucide Icons (Vanilla Version for stability) -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -60,8 +63,12 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, createElement } = React;
 
+        // --- KONFIGURASI SUPABASE ---
+        const supabaseUrl = 'https://jwoxprecwboxuycudlkb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3b3hwcmVjd2JveHV5Y3VkbGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1NzIxNTEsImV4cCI6MjA4NTE0ODE1MX0.Jjjzcv8mLm5ac640tnkciPoBPfJ5JecZIHTAM5DFDus';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
         // --- LUCIDE REACT POLYFILL ---
-        // Mencipta komponen React daripada library Lucide global
         const lucideReact = window.lucide ? Object.keys(window.lucide.icons).reduce((acc, key) => {
             acc[key] = ({ size = 24, color = "currentColor", strokeWidth = 2, className = "", ...props }) => {
                 const ref = useRef(null);
@@ -101,6 +108,7 @@
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
             const [isPlaying, setIsPlaying] = useState(false); // Untuk lagu sekolah
             const [newsCategory, setNewsCategory] = useState('Semua'); // Untuk filter berita
+            const [isLoading, setIsLoading] = useState(true);
 
             // Data Sekolah
             const [schoolData, setSchoolData] = useState({
@@ -114,12 +122,7 @@
                     teachers: 54,
                     classes: 24
                 },
-                news: [
-                    { id: 1, title: "Hari Sukan Sekolah 2024", date: "20 Okt 2024", category: "Kokurikulum", content: "Tahniah Rumah Merah juara keseluruhan! Semangat kesukanan yang tinggi ditunjukkan." },
-                    { id: 2, title: "Mesyuarat PIBG Kali Ke-25", date: "15 Nov 2024", category: "PIBG", content: "Ibu bapa dijemput hadir ke Dewan Gemilang untuk membincangkan hal ehwal sekolah." },
-                    { id: 3, title: "Program Jom Membaca", date: "01 Dis 2024", category: "Akademik", content: "Program 10 minit membaca bersama di dataran perhimpunan setiap pagi." },
-                    { id: 4, title: "Kem Kepimpinan Pengawas", date: "10 Jan 2025", category: "Hal Ehwal Murid", content: "Melahirkan pemimpin muda yang berwibawa dan berdisiplin tinggi." }
-                ],
+                news: [], // Data akan diambil dari Supabase
                 history: "SK Simpang Empat telah ditubuhkan pada tahun 1950. Bermula dengan sebuah bangunan kayu yang menempatkan 50 orang murid, kini sekolah ini telah berkembang pesat menjadi salah satu institusi pendidikan rendah yang disegani di daerah ini. Misi kami adalah untuk melahirkan murid yang seimbang dari segi intelek, rohani, emosi dan jasmani selaras dengan Falsafah Pendidikan Kebangsaan.",
                 adminTeam: [
                     { id: 1, role: "Guru Besar", name: "En Anuar Bin Ismail", image: "https://i.postimg.cc/RV7W25BV/gb_anuar.png" },
@@ -144,7 +147,48 @@
 
             const [tempData, setTempData] = useState({});
 
-            // --- CRUD FUNCTIONS ---
+            // --- FETCH DATA FROM SUPABASE ---
+            const fetchData = async () => {
+                setIsLoading(true);
+                try {
+                    // Fetch News
+                    const { data: newsData, error: newsError } = await supabase
+                        .from('berita')
+                        .select('*')
+                        .order('id', { ascending: false });
+
+                    // Fetch Stats
+                    const { data: statsData, error: statsError } = await supabase
+                        .from('statistik')
+                        .select('*')
+                        .single();
+
+                    if (newsData) {
+                        setSchoolData(prev => ({ ...prev, news: newsData }));
+                    }
+                    
+                    if (statsData) {
+                        setSchoolData(prev => ({ 
+                            ...prev, 
+                            stats: { 
+                                students: statsData.students, 
+                                teachers: statsData.teachers, 
+                                classes: statsData.classes 
+                            } 
+                        }));
+                    }
+                } catch (error) {
+                    console.error("Error fetching data:", error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                fetchData();
+            }, []);
+
+            // --- CRUD FUNCTIONS (SUPABASE) ---
             const handleLogin = (e) => {
                 e.preventDefault();
                 if (passwordInput === 'admin123') { setIsAdmin(true); setShowLoginModal(false); setPasswordInput(''); setLoginError(''); } 
@@ -153,14 +197,65 @@
             const handleLogout = () => { setIsAdmin(false); setEditMode(null); };
             const openEditModal = (section, data) => { setEditMode(section); setTempData(JSON.parse(JSON.stringify(data))); };
             const openAddNewsModal = () => { setEditMode('news_add'); setTempData({ title: '', date: '', content: '', category: 'Umum' }); };
-            const handleDeleteNews = (id) => { if (window.confirm("Padam berita ini?")) { setSchoolData(prev => ({ ...prev, news: prev.news.filter(item => item.id !== id) })); }};
-            const saveChanges = () => {
+            
+            const handleDeleteNews = async (id) => { 
+                if (window.confirm("Padam berita ini?")) { 
+                    const { error } = await supabase.from('berita').delete().eq('id', id);
+                    if (!error) {
+                        fetchData();
+                        alert("Berita berjaya dipadam.");
+                    } else {
+                        alert("Gagal memadam berita.");
+                    }
+                }
+            };
+
+            const saveChanges = async () => {
                 if (editMode === 'news_add') {
-                    const newId = schoolData.news.length > 0 ? Math.max(...schoolData.news.map(n => n.id)) + 1 : 1;
-                    setSchoolData(prev => ({ ...prev, news: [{ id: newId, ...tempData }, ...prev.news] }));
+                    // Insert into Supabase
+                    const { error } = await supabase.from('berita').insert([{
+                        title: tempData.title,
+                        date: tempData.date,
+                        category: tempData.category,
+                        content: tempData.content,
+                        image_url: "https://via.placeholder.com/500" // Default image for now
+                    }]);
+                    
+                    if (!error) {
+                        fetchData();
+                        alert("Berita berjaya ditambah!");
+                    } else {
+                        alert("Gagal menambah berita: " + error.message);
+                    }
+
                 } else if (editMode === 'news_edit') {
-                    setSchoolData(prev => ({ ...prev, news: prev.news.map(item => item.id === tempData.id ? tempData : item) }));
+                    // Update News in Supabase
+                    const { error } = await supabase.from('berita').update({
+                        title: tempData.title,
+                        date: tempData.date,
+                        category: tempData.category,
+                        content: tempData.content
+                    }).eq('id', tempData.id);
+
+                    if (!error) {
+                        fetchData();
+                        alert("Berita berjaya dikemaskini.");
+                    }
+
+                } else if (editMode === 'stats') {
+                    // Update Stats in Supabase (Assume ID 1 exists, otherwise insert first in SQL setup)
+                    const { error } = await supabase.from('statistik').update({
+                        students: parseInt(tempData.students),
+                        teachers: parseInt(tempData.teachers),
+                        classes: parseInt(tempData.classes)
+                    }).eq('id', 1); // Assuming row with ID 1 exists
+
+                    if (!error) {
+                        fetchData();
+                        alert("Statistik berjaya dikemaskini.");
+                    }
                 } else {
+                    // Local state update for non-database items (Hero, History)
                     setSchoolData(prev => ({ ...prev, [editMode]: tempData }));
                 }
                 setEditMode(null);
@@ -316,32 +411,40 @@
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                    {filteredNews.map((item) => (
-                                        <div key={item.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden group flex flex-col h-full hover:-translate-y-1">
-                                            <div className="p-6 flex-grow flex flex-col">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-blue-100">
-                                                        {item.category || 'Umum'}
-                                                    </span>
-                                                    <div className="text-xs text-gray-400 flex items-center gap-1">
-                                                        <Calendar size={12} /> {item.date}
+                                {isLoading ? (
+                                    <div className="text-center py-20 text-gray-500">Memuatkan data...</div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                        {filteredNews.length > 0 ? (
+                                            filteredNews.map((item) => (
+                                                <div key={item.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden group flex flex-col h-full hover:-translate-y-1">
+                                                    <div className="p-6 flex-grow flex flex-col">
+                                                        <div className="flex justify-between items-start mb-4">
+                                                            <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-blue-100">
+                                                                {item.category || 'Umum'}
+                                                            </span>
+                                                            <div className="text-xs text-gray-400 flex items-center gap-1">
+                                                                <Calendar size={12} /> {item.date}
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <h4 className="font-bold text-lg text-gray-800 mb-3 leading-snug group-hover:text-blue-600 transition">{item.title}</h4>
+                                                        <p className="text-gray-500 text-sm line-clamp-4 mb-4 flex-grow leading-relaxed">{item.content}</p>
+                                                        
+                                                        {isAdmin && (
+                                                            <div className="flex gap-2 pt-4 border-t border-gray-100 mt-auto">
+                                                                <button onClick={() => openEditModal('news_edit', item)} className="flex-1 py-1 text-xs font-bold text-blue-600 bg-blue-50 rounded hover:bg-blue-100">Edit</button>
+                                                                <button onClick={() => handleDeleteNews(item.id)} className="flex-1 py-1 text-xs font-bold text-red-600 bg-red-50 rounded hover:bg-red-100">Padam</button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                
-                                                <h4 className="font-bold text-lg text-gray-800 mb-3 leading-snug group-hover:text-blue-600 transition">{item.title}</h4>
-                                                <p className="text-gray-500 text-sm line-clamp-4 mb-4 flex-grow leading-relaxed">{item.content}</p>
-                                                
-                                                {isAdmin && (
-                                                    <div className="flex gap-2 pt-4 border-t border-gray-100 mt-auto">
-                                                        <button onClick={() => openEditModal('news_edit', item)} className="flex-1 py-1 text-xs font-bold text-blue-600 bg-blue-50 rounded hover:bg-blue-100">Edit</button>
-                                                        <button onClick={() => handleDeleteNews(item.id)} className="flex-1 py-1 text-xs font-bold text-red-600 bg-red-50 rounded hover:bg-red-100">Padam</button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="col-span-full text-center py-10 text-gray-500 bg-gray-50 rounded-xl">Tiada berita untuk dipaparkan.</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* History Section */}
