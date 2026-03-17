@@ -15,10 +15,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Supabase Client -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    
-    <!-- Lucide Icons (Vanilla Version for stability) -->
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Google Fonts -->
@@ -63,10 +60,10 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, createElement } = React;
 
-        // --- KONFIGURASI SUPABASE ---
-        const supabaseUrl = 'https://jwoxprecwboxuycudlkb.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3b3hwcmVjd2JveHV5Y3VkbGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1NzIxNTEsImV4cCI6MjA4NTE0ODE1MX0.Jjjzcv8mLm5ac640tnkciPoBPfJ5JecZIHTAM5DFDus';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        // =========================================================================
+        // MASUKKAN URL GOOGLE APPS SCRIPT (WEB APP) ANDA DI SINI
+        // =========================================================================
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyabXw1dwifA2_SMYxcaC3ppG_zZ5BIdMrGzx3xr2bfn5Qzgpm0nTfkiFgQwfztbTbo/exec'; 
 
         // --- LUCIDE REACT POLYFILL ---
         const lucideReact = window.lucide ? Object.keys(window.lucide.icons).reduce((acc, key) => {
@@ -94,7 +91,7 @@
             Users, BookOpen, Award, Phone, MapPin, Mail, Lock, Edit3, Save, X, Menu, 
             GraduationCap, Calendar, Layout, ExternalLink, Info, Trash2, PlusCircle, 
             Music, Flag, Play, Pause, Facebook, Youtube, Send, Filter, ArrowRight, 
-            ChevronDown, Quote 
+            ChevronDown, Quote, Loader
         } = lucideReact;
 
         const App = () => {
@@ -106,9 +103,10 @@
             const [loginError, setLoginError] = useState('');
             const [editMode, setEditMode] = useState(null); 
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-            const [isPlaying, setIsPlaying] = useState(false); // Untuk lagu sekolah
-            const [newsCategory, setNewsCategory] = useState('Semua'); // Untuk filter berita
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [newsCategory, setNewsCategory] = useState('Semua');
             const [isLoading, setIsLoading] = useState(true);
+            const [isSaving, setIsSaving] = useState(false); // State untuk loading butang simpan
 
             // Data Sekolah
             const [schoolData, setSchoolData] = useState({
@@ -117,12 +115,8 @@
                     subtitle: "Pendidikan Berkualiti Menjana Kecemerlangan Insan",
                     announcement: "Pendaftaran Murid Tahun 1 Sesi 2026 Kini Dibuka! Sila hubungi pejabat untuk maklumat lanjut."
                 },
-                stats: {
-                    students: 850,
-                    teachers: 54,
-                    classes: 24
-                },
-                news: [], // Data akan diambil dari Supabase
+                stats: { students: 0, teachers: 0, classes: 0 },
+                news: [], 
                 history: "SK Simpang Empat telah ditubuhkan pada tahun 1950. Bermula dengan sebuah bangunan kayu yang menempatkan 50 orang murid, kini sekolah ini telah berkembang pesat menjadi salah satu institusi pendidikan rendah yang disegani di daerah ini. Misi kami adalah untuk melahirkan murid yang seimbang dari segi intelek, rohani, emosi dan jasmani selaras dengan Falsafah Pendidikan Kebangsaan.",
                 adminTeam: [
                     { id: 1, role: "Guru Besar", name: "En Anuar Bin Ismail", image: "https://i.postimg.cc/RV7W25BV/gb_anuar.png" },
@@ -147,38 +141,34 @@
 
             const [tempData, setTempData] = useState({});
 
-            // --- FETCH DATA FROM SUPABASE ---
+            // --- FETCH DATA FROM GOOGLE APPS SCRIPT (GAS) ---
             const fetchData = async () => {
+                if (GAS_URL === 'LETAK_URL_WEB_APP_GAS_ANDA_DI_SINI') {
+                    console.warn("Sila masukkan URL GAS di dalam fail index.html untuk mengambil data.");
+                    setIsLoading(false);
+                    return;
+                }
+
                 setIsLoading(true);
                 try {
-                    // Fetch News
-                    const { data: newsData, error: newsError } = await supabase
-                        .from('berita')
-                        .select('*')
-                        .order('id', { ascending: false });
-
-                    // Fetch Stats
-                    const { data: statsData, error: statsError } = await supabase
-                        .from('statistik')
-                        .select('*')
-                        .single();
-
-                    if (newsData) {
-                        setSchoolData(prev => ({ ...prev, news: newsData }));
-                    }
+                    const response = await fetch(GAS_URL);
+                    const data = await response.json();
                     
-                    if (statsData) {
+                    if (data.news) {
+                        setSchoolData(prev => ({ ...prev, news: data.news }));
+                    }
+                    if (data.stats) {
                         setSchoolData(prev => ({ 
                             ...prev, 
                             stats: { 
-                                students: statsData.students, 
-                                teachers: statsData.teachers, 
-                                classes: statsData.classes 
+                                students: data.stats.students, 
+                                teachers: data.stats.teachers, 
+                                classes: data.stats.classes 
                             } 
                         }));
                     }
                 } catch (error) {
-                    console.error("Error fetching data:", error);
+                    console.error("Ralat mengambil data dari Google Sheets:", error);
                 } finally {
                     setIsLoading(false);
                 }
@@ -188,7 +178,7 @@
                 fetchData();
             }, []);
 
-            // --- CRUD FUNCTIONS (SUPABASE) ---
+            // --- CRUD FUNCTIONS (GOOGLE APPS SCRIPT) ---
             const handleLogin = (e) => {
                 e.preventDefault();
                 if (passwordInput === 'admin123') { setIsAdmin(true); setShowLoginModal(false); setPasswordInput(''); setLoginError(''); } 
@@ -199,65 +189,57 @@
             const openAddNewsModal = () => { setEditMode('news_add'); setTempData({ title: '', date: '', content: '', category: 'Umum' }); };
             
             const handleDeleteNews = async (id) => { 
-                if (window.confirm("Padam berita ini?")) { 
-                    const { error } = await supabase.from('berita').delete().eq('id', id);
-                    if (!error) {
-                        fetchData();
+                if (window.confirm("Padam berita ini? Data akan dipadam dari Google Sheets.")) { 
+                    setIsLoading(true);
+                    try {
+                        await fetch(GAS_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: 'delete_news', id: id })
+                        });
                         alert("Berita berjaya dipadam.");
-                    } else {
-                        alert("Gagal memadam berita.");
+                        fetchData();
+                    } catch (error) {
+                        alert("Gagal memadam berita. Pastikan URL GAS betul.");
+                        setIsLoading(false);
                     }
                 }
             };
 
             const saveChanges = async () => {
+                setIsSaving(true);
+                let action = '';
+                let payloadData = {};
+
                 if (editMode === 'news_add') {
-                    // Insert into Supabase
-                    const { error } = await supabase.from('berita').insert([{
-                        title: tempData.title,
-                        date: tempData.date,
-                        category: tempData.category,
-                        content: tempData.content,
-                        image_url: "https://via.placeholder.com/500" // Default image for now
-                    }]);
-                    
-                    if (!error) {
-                        fetchData();
-                        alert("Berita berjaya ditambah!");
-                    } else {
-                        alert("Gagal menambah berita: " + error.message);
-                    }
-
+                    action = 'add_news';
+                    payloadData = { title: tempData.title, date: tempData.date, category: tempData.category, content: tempData.content };
                 } else if (editMode === 'news_edit') {
-                    // Update News in Supabase
-                    const { error } = await supabase.from('berita').update({
-                        title: tempData.title,
-                        date: tempData.date,
-                        category: tempData.category,
-                        content: tempData.content
-                    }).eq('id', tempData.id);
-
-                    if (!error) {
-                        fetchData();
-                        alert("Berita berjaya dikemaskini.");
-                    }
-
+                    action = 'edit_news';
+                    payloadData = { id: tempData.id, title: tempData.title, date: tempData.date, category: tempData.category, content: tempData.content };
                 } else if (editMode === 'stats') {
-                    // Update Stats in Supabase (Assume ID 1 exists, otherwise insert first in SQL setup)
-                    const { error } = await supabase.from('statistik').update({
-                        students: parseInt(tempData.students),
-                        teachers: parseInt(tempData.teachers),
-                        classes: parseInt(tempData.classes)
-                    }).eq('id', 1); // Assuming row with ID 1 exists
+                    action = 'edit_stats';
+                    payloadData = { students: parseInt(tempData.students), teachers: parseInt(tempData.teachers), classes: parseInt(tempData.classes) };
+                }
 
-                    if (!error) {
+                if (action) {
+                    try {
+                        await fetch(GAS_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: action, data: payloadData })
+                        });
+                        alert("Maklumat berjaya dikemaskini dalam Google Sheets.");
                         fetchData();
-                        alert("Statistik berjaya dikemaskini.");
+                    } catch (error) {
+                        alert("Ralat mengemaskini maklumat. Sila cuba lagi.");
                     }
                 } else {
                     // Local state update for non-database items (Hero, History)
                     setSchoolData(prev => ({ ...prev, [editMode]: tempData }));
                 }
+                
+                setIsSaving(false);
                 setEditMode(null);
             };
 
@@ -318,7 +300,6 @@
             );
 
             const TabUtama = () => {
-                // Filter news logic
                 const categories = ['Semua', ...new Set(schoolData.news.map(n => n.category || 'Umum'))];
                 const filteredNews = newsCategory === 'Semua' ? schoolData.news : schoolData.news.filter(n => n.category === newsCategory);
 
@@ -365,8 +346,24 @@
                         </div>
 
                         <div className="max-w-7xl mx-auto px-4 space-y-24 pb-20">
+                            
+                            {/* Warning if GAS URL is empty */}
+                            {GAS_URL === 'LETAK_URL_WEB_APP_GAS_ANDA_DI_SINI' && (
+                                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md shadow-sm mb-8 -mt-16 relative z-30 max-w-4xl mx-auto">
+                                    <div className="flex">
+                                        <div className="flex-shrink-0">
+                                            <Info className="h-5 w-5 text-red-500" />
+                                        </div>
+                                        <div className="ml-3">
+                                            <p className="text-sm text-red-700 font-bold">Perhatian: Penyambungan Pangkalan Data (Google Sheets) Belum Ditetapkan.</p>
+                                            <p className="text-sm text-red-600 mt-1">Sila salin Web App URL dari Google Apps Script anda dan tampal di dalam kod HTML (Cari 'LETAK_URL_WEB_APP_GAS_ANDA_DI_SINI').</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Stats Section */}
-                            <div className="relative -mt-32 z-20 grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className={`relative ${GAS_URL !== 'LETAK_URL_WEB_APP_GAS_ANDA_DI_SINI' ? '-mt-32' : 'mt-0'} z-20 grid grid-cols-1 md:grid-cols-3 gap-6`}>
                                 {[
                                     { label: 'Murid', val: schoolData.stats.students, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
                                     { label: 'Guru', val: schoolData.stats.teachers, icon: GraduationCap, color: 'text-yellow-600', bg: 'bg-yellow-50' },
@@ -374,7 +371,7 @@
                                 ].map((stat, idx) => (
                                     <div key={idx} className="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition transform hover:-translate-y-2 flex items-center justify-between border border-gray-100">
                                         <div>
-                                            <h3 className="text-5xl font-extrabold text-gray-800 mb-2">{stat.val}</h3>
+                                            <h3 className="text-5xl font-extrabold text-gray-800 mb-2">{isLoading ? '-' : stat.val}</h3>
                                             <p className="text-gray-500 font-semibold uppercase tracking-wider text-sm">{stat.label}</p>
                                         </div>
                                         <div className={`${stat.bg} p-4 rounded-2xl ${stat.color}`}>
@@ -412,7 +409,10 @@
                                 </div>
 
                                 {isLoading ? (
-                                    <div className="text-center py-20 text-gray-500">Memuatkan data...</div>
+                                    <div className="text-center py-20 text-gray-500 flex flex-col items-center">
+                                        <Loader className="animate-spin text-blue-500 mb-4" size={32} />
+                                        <p>Menghubungkan dengan Google Sheets...</p>
+                                    </div>
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                         {filteredNews.length > 0 ? (
@@ -441,7 +441,10 @@
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="col-span-full text-center py-10 text-gray-500 bg-gray-50 rounded-xl">Tiada berita untuk dipaparkan.</div>
+                                            <div className="col-span-full text-center py-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                                                Tiada berita untuk dipaparkan. 
+                                                {isAdmin && GAS_URL === 'LETAK_URL_WEB_APP_GAS_ANDA_DI_SINI' ? " (Sila letak URL Web App GAS di dalam fail HTML)" : ""}
+                                            </div>
                                         )}
                                     </div>
                                 )}
@@ -475,8 +478,6 @@
 
             const TabMaklumatAsas = () => (
                 <div className="max-w-7xl mx-auto px-4 py-16 animate-in slide-in-from-right-8 duration-500">
-                    
-                    {/* Ucapan Guru Besar Section */}
                     <div className="bg-white rounded-[2rem] shadow-xl border border-blue-100 overflow-hidden mb-24 flex flex-col md:flex-row transform hover:shadow-2xl transition duration-500">
                         <div className="md:w-2/5 relative min-h-[400px]">
                             <img src={schoolData.adminTeam[0].image} alt="Guru Besar" className="absolute inset-0 w-full h-full object-cover object-top" />
@@ -492,15 +493,9 @@
                             <span className="text-blue-600 font-bold tracking-wider text-xs uppercase mb-2">Dari Meja Guru Besar</span>
                             <h2 className="text-3xl md:text-4xl font-extrabold text-blue-900 mb-6 font-poppins">Sekapur Sirih Seulas Pinang</h2>
                             <div className="prose prose-lg text-gray-600 leading-relaxed text-justify mb-8">
-                                <p className="mb-4">
-                                    Assalamualaikum Warahmatullahi Wabarakatuh dan Salam Sejahtera.
-                                </p>
-                                <p className="mb-4">
-                                    Selamat datang ke laman web rasmi Sekolah Kebangsaan Simpang Empat. Alhamdulillah, bersyukur kita ke hadrat Ilahi kerana dengan limpah kurnia-Nya, kita dapat memanfaatkan teknologi maklumat ini sebagai medium perhubungan yang efisien antara sekolah, ibu bapa, dan masyarakat.
-                                </p>
-                                <p>
-                                    Saya berharap laman web ini dapat menjadi wadah penyebaran maklumat yang pantas dan tepat mengenai aktiviti serta pencapaian sekolah. Marilah kita bersama-sama berganding bahu demi kecemerlangan anak-anak didik kita. "Usaha, Pasti, Jaya".
-                                </p>
+                                <p className="mb-4">Assalamualaikum Warahmatullahi Wabarakatuh dan Salam Sejahtera.</p>
+                                <p className="mb-4">Selamat datang ke laman web rasmi Sekolah Kebangsaan Simpang Empat. Alhamdulillah, bersyukur kita ke hadrat Ilahi kerana dengan limpah kurnia-Nya, kita dapat memanfaatkan teknologi maklumat ini sebagai medium perhubungan yang efisien antara sekolah, ibu bapa, dan masyarakat.</p>
+                                <p>Saya berharap laman web ini dapat menjadi wadah penyebaran maklumat yang pantas dan tepat mengenai aktiviti serta pencapaian sekolah. Marilah kita bersama-sama berganding bahu demi kecemerlangan anak-anak didik kita. "Usaha, Pasti, Jaya".</p>
                             </div>
                             <div className="mt-auto pt-6 border-t border-blue-100">
                                 <p className="font-signature text-3xl text-blue-600 transform -rotate-2">{schoolData.adminTeam[0].name.split(' ')[1]}</p>
@@ -523,7 +518,6 @@
                             <img src="https://i.postimg.cc/Vv8468q3/LOGO-SKSE-utk-background-putih-(2).jpg" alt="Lencana" className="w-40 h-40 mx-auto mb-8 object-contain drop-shadow-md" />
                             <p className="text-gray-500 leading-relaxed px-4">Lambang kemegahan yang membawa maksud keberanian, ketaatan, dan keharmonian warga sekolah dalam mencapai visi pendidikan.</p>
                         </div>
-
                         <div className="bg-white p-10 rounded-3xl shadow-lg border border-gray-100 text-center hover:shadow-2xl transition duration-500 group">
                             <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition">
                                 <Flag className="text-yellow-600" size={40} />
@@ -534,9 +528,7 @@
                         </div>
                     </div>
 
-                    {/* Lagu Sekolah Player */}
                     <div className="bg-blue-900 rounded-[3rem] p-10 md:p-16 text-white text-center relative overflow-hidden shadow-2xl">
-                        {/* Animated Background Elements */}
                         {isPlaying && (
                             <>
                                 <Music className="music-note text-yellow-300 left-10 top-20 w-12 h-12" style={{ animationDelay: '0s' }} />
@@ -544,11 +536,9 @@
                                 <Music className="music-note text-pink-300 left-1/4 bottom-10 w-10 h-10" style={{ animationDelay: '0.5s' }} />
                             </>
                         )}
-                        
                         <div className="relative z-10 max-w-2xl mx-auto">
                             <h3 className="text-3xl font-bold mb-2">Lagu Sekolah</h3>
                             <p className="text-blue-200 mb-8 font-medium">"Usaha Pasti Jaya"</p>
-
                             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 mb-8">
                                 <div className="space-y-1 font-medium text-lg leading-loose italic opacity-90">
                                     <p>Sekolah Kebangsaan Simpang Empat</p>
@@ -572,14 +562,9 @@
                                     <p className="text-yellow-300 font-bold mt-2">Menuju Kejayaan</p>
                                 </div>
                             </div>
-
-                            <button 
-                                onClick={() => setIsPlaying(!isPlaying)}
-                                className={`flex items-center justify-center gap-3 px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 shadow-lg mx-auto ${isPlaying ? 'bg-yellow-400 text-blue-900' : 'bg-white text-blue-900 hover:bg-blue-50'}`}
-                            >
+                            <button onClick={() => setIsPlaying(!isPlaying)} className={`flex items-center justify-center gap-3 px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 shadow-lg mx-auto ${isPlaying ? 'bg-yellow-400 text-blue-900' : 'bg-white text-blue-900 hover:bg-blue-50'}`}>
                                 {isPlaying ? <><Pause fill="currentColor" /> Hentikan Lagu</> : <><Play fill="currentColor" /> Mainkan Lagu</>}
                             </button>
-                            
                             {isPlaying && (
                                 <div className="flex justify-center items-end h-8 gap-1 mt-6 opacity-70">
                                     {[...Array(10)].map((_, i) => <div key={i} className="bar" style={{ animationDelay: `${i * 0.1}s`, background: '#FACC15' }}></div>)}
@@ -597,8 +582,6 @@
                         <p className="text-gray-500 mt-3 text-lg">"Bersatu Menuju Kecemerlangan"</p>
                         <div className="w-24 h-1.5 bg-blue-500 mx-auto mt-6 rounded-full"></div>
                     </div>
-
-                    {/* Guru Besar Card - Featured */}
                     <div className="flex justify-center mb-16">
                         <div className="relative group w-full max-w-sm">
                             <div className="absolute inset-0 bg-blue-500 rounded-2xl rotate-6 group-hover:rotate-3 transition duration-300 opacity-20"></div>
@@ -611,8 +594,6 @@
                             </div>
                         </div>
                     </div>
-
-                    {/* Grid GPKs */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                         {schoolData.adminTeam.slice(1).map((staff) => (
                             <div key={staff.id} className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl transition duration-300 border-t-4 border-yellow-400 group text-center hover:-translate-y-2">
@@ -633,7 +614,6 @@
                         <h2 className="text-4xl font-extrabold text-gray-900">Unit Pengurusan</h2>
                         <div className="w-24 h-1.5 bg-green-500 mx-auto mt-6 rounded-full"></div>
                     </div>
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {schoolData.units.map((unit) => {
                             const Icon = unit.icon;
@@ -644,7 +624,6 @@
                                     </div>
                                     <h3 className="font-bold text-xl mb-3 text-gray-800">{unit.title}</h3>
                                     <p className="text-gray-500 leading-relaxed text-sm mb-4">{unit.desc}</p>
-                                    
                                     <div className="absolute bottom-0 right-0 w-24 h-24 bg-current opacity-5 rounded-tl-full transform translate-y-4 translate-x-4"></div>
                                 </div>
                             );
@@ -659,7 +638,6 @@
                         <h2 className="text-4xl font-extrabold text-gray-900">Pautan Digital KPM</h2>
                         <p className="text-gray-500 mt-3">Akses pantas ke sistem utama pendidikan</p>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         {schoolData.links.map((link, idx) => (
                             <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="group relative bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 flex flex-col items-center text-center hover:-translate-y-2 overflow-hidden">
@@ -672,7 +650,6 @@
                             </a>
                         ))}
                     </div>
-
                     <div className="mt-16 bg-yellow-50 border border-yellow-200 rounded-2xl p-6 flex gap-4 items-start shadow-sm">
                         <Info className="text-yellow-600 flex-shrink-0 mt-1" />
                         <div>
@@ -739,7 +716,7 @@
 
                         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
                             <p>&copy; 2026 SK Simpang Empat. Hak Cipta Terpelihara.</p>
-                            <p className="mt-2 md:mt-0">Dibangunkan dengan ❤️ untuk Pendidikan.</p>
+                            <p className="mt-2 md:mt-0">Dibangunkan dengan ❤️ menggunakan Google Sheets.</p>
                         </div>
                     </div>
                 </footer>
@@ -831,12 +808,15 @@
                         <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg">
                             <div className="flex justify-between items-center mb-6 border-b pb-2">
                                 <h3 className="text-lg font-bold text-gray-800 capitalize">Edit: {editMode.replace('_', ' ')}</h3>
-                                <button onClick={() => setEditMode(null)} className="text-gray-500 hover:text-red-500"><X size={24} /></button>
+                                <button onClick={() => setEditMode(null)} className="text-gray-500 hover:text-red-500" disabled={isSaving}><X size={24} /></button>
                             </div>
                             <div className="max-h-[60vh] overflow-y-auto pr-2">{renderFormContent()}</div>
                             <div className="mt-6 flex justify-end gap-3">
-                                <button onClick={() => setEditMode(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Batal</button>
-                                <button onClick={saveChanges} className="px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg font-bold flex items-center gap-2"><Save size={18} /> Simpan</button>
+                                <button onClick={() => setEditMode(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium" disabled={isSaving}>Batal</button>
+                                <button onClick={saveChanges} disabled={isSaving} className={`px-4 py-2 text-white rounded-lg font-bold flex items-center gap-2 ${isSaving ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}>
+                                    {isSaving ? <Loader className="animate-spin" size={18} /> : <Save size={18} />} 
+                                    {isSaving ? 'Menyimpan...' : 'Simpan'}
+                                </button>
                             </div>
                         </div>
                     </div>
